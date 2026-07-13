@@ -23,6 +23,7 @@ app/
 
 infra/
 ├── bootstrap-mcg.sh   # Enables Fleet MCS + MCG on project (idempotent)
+├── bootstrap-cicd.sh  # Creates AR repo + WIF pool/provider + deployer SA
 └── gateway-chart/     # Config-cluster-only chart (installed once)
     ├── Chart.yaml
     ├── values.yaml
@@ -30,6 +31,10 @@ infra/
         ├── _helpers.tpl
         ├── gateway.yaml     # gke-l7-global-external-managed-mc
         └── httproute.yaml   # routes to ServiceImport (MCS-derived)
+
+.github/workflows/
+├── ci.yml             # pytest on PR + main
+└── deploy.yml         # build → Artifact Registry → helm upgrade on GKE
 ```
 
 ## Container image
@@ -166,6 +171,49 @@ helm upgrade --install gateway ./infra/gateway-chart \
 The `HTTPRoute` points at a `ServiceImport` that MCS derives from the
 `ServiceExport`s emitted by each workload cluster. The gateway chart's
 `backend.serviceName` must match the app chart's fullname.
+
+## CI/CD
+
+GitHub Actions push images to Artifact Registry and roll out via Helm
+against a target GKE cluster. Auth is keyless via Workload Identity
+Federation — no long-lived service-account JSON in the repo.
+
+**Workflows**
+
+- `.github/workflows/ci.yml` — runs `pytest` on PRs and pushes to main.
+- `.github/workflows/deploy.yml` — on push to `main` (paths: `app/**`)
+  or manual dispatch, builds the image, pushes to
+  `us-central1-docker.pkg.dev/gumloop-infra-interview/app/app:<sha>`,
+  then `helm upgrade --install app ./app/chart` against the target
+  cluster (default `cluster-a` in `us-central1`).
+
+**One-time bootstrap** (`infra/bootstrap-cicd.sh`):
+
+```bash
+PROJECT_ID=gumloop-infra-interview \
+GITHUB_REPO=<owner>/<repo> \
+./infra/bootstrap-cicd.sh
+```
+
+Creates:
+- Artifact Registry docker repo `app` in `us-central1`
+- Deployer SA `gha-deployer@…` with `roles/artifactregistry.writer`
+  and `roles/container.developer` (project-scoped)
+- WIF pool `github-pool` + OIDC provider `github-provider` with
+  `attribute-condition` scoped to `${GITHUB_REPO}` — only that repo's
+  workflow runs can impersonate the SA
+- IAM binding: the repo's OIDC principalSet → `roles/iam.workloadIdentityUser`
+  on the SA
+
+The script does NOT enable APIs, create GKE clusters, or grant broader
+IAM. It prints the exact `GCP_PROJECT_NUMBER` value to set as a GitHub
+repository variable — the workflow reads it via `vars.GCP_PROJECT_NUMBER`
+to build the provider resource name.
+
+**Extending to all 3 clusters**: current deploy job targets a single
+cluster. Convert `jobs.build-deploy` to a matrix over
+`cluster-a/b/c` and set `--set multiCluster.enabled=true` on the helm
+step to emit `ServiceExport`s for the Multi-Cluster Gateway.
 
 ## Open items
 
