@@ -1,0 +1,14 @@
+apiVersion: v2
+name: observability
+description: VictoriaMetrics cluster (vminsert + vmstorage + vmselect) with vmagent scraper
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: victoria-metrics-cluster
+    version: "0.14.*"
+    repository: https://victoriametrics.github.io/helm-charts/
+  - name: victoria-metrics-agent
+    version: "0.10.*"
+    repository: https://victoriametrics.github.io/helm-charts/
+    alias: vmagent

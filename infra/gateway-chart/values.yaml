@@ -1,0 +1,25 @@
+# Applied to the CONFIG CLUSTER ONLY (the Fleet membership passed to
+# `gcloud container fleet ingress enable --config-membership=...`).
+# Workload clusters get the app chart with multiCluster.enabled=true.
+
+gateway:
+  gatewayClassName: gke-l7-global-external-managed-mc
+  # Optional named static IP reserved via:
+  #   gcloud compute addresses create <name> --global --project=<PROJECT_ID>
+  addressName: ""
+
+hostname: api.example.com
+
+tls:
+  enabled: false
+  # Kubernetes Secret in the same namespace containing tls.crt + tls.key.
+  # For Google-managed certs, create a Certificate Manager cert and switch
+  # the listener to the pre-shared-certs annotation.
+  secretName: ""
+
+# The HTTPRoute points at a ServiceImport (derived by MCS from ServiceExports
+# in workload clusters). Name must match the app chart's fullname AND that
+# Service must have multiCluster.enabled=true in every workload cluster.
+backend:
+  serviceName: app-app
+  port: 80

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: gateway
+description: Multi-Cluster Gateway (config cluster only) for the Flask API
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

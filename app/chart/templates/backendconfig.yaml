@@ -1,0 +1,11 @@
+{{- if and .Values.multiCluster.enabled .Values.cloudArmor.enabled -}}
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ include "app.fullname" . }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  securityPolicy:
+    name: {{ required "cloudArmor.policyName is required when cloudArmor.enabled=true" .Values.cloudArmor.policyName }}
+{{- end }}
